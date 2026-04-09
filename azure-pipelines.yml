@@ -1,8 +1,3 @@
-# Node.js
-# Build a general Node.js project with npm.
-# Add steps that analyze code, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
-
 trigger:
 - main
 
@@ -19,3 +14,21 @@ steps:
     npm install
     npm run build
   displayName: 'npm install and build'
+
+# Step 1: Archive the build output into a .zip
+- task: ArchiveFiles@2
+  displayName: 'Zip build output'
+  inputs:
+    rootFolderOrFile: '$(System.DefaultWorkingDirectory)/dist'  # change to your build output folder
+    includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    replaceExistingArchive: true
+
+# Step 2: Publish the .zip so the release pipeline can find it
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish artifact'
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
