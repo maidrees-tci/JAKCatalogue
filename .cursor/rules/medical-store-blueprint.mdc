@@ -1,0 +1,204 @@
+---
+description: Medical ecommerce architecture and generation guardrails
+alwaysApply: true
+---
+
+# Medical Store Blueprint
+
+Use this rule for all generated code in this project.
+
+## Project Architecture
+
+Enforce this folder structure:
+
+```txt
+src/
+  app/
+    pages/
+      HomePage.tsx
+      ListingPage.tsx
+      DetailPage.tsx
+      CartPage.tsx
+      CheckoutPage.tsx
+      ConfirmationPage.tsx
+      LoginPage.tsx
+      AccountPage.tsx
+      admin/
+        AdminDashboardPage.tsx
+        AdminProductsPage.tsx
+        AdminOrdersPage.tsx
+        AdminCustomersPage.tsx
+        AdminSettingsPage.tsx
+  components/
+    common/
+    layout/
+    product/
+    cart/
+    checkout/
+    account/
+    admin/
+  context/
+    AuthContext.tsx
+    CartContext.tsx
+    ProductContext.tsx
+  data/
+    products.ts
+    categories.ts
+    users.ts
+  hooks/
+    useAuth.ts
+    useCart.ts
+    useLocalStorage.ts
+    useProducts.ts
+  routes/
+    AppRoutes.tsx
+    ProtectedRoute.tsx
+    AdminRoute.tsx
+  utils/
+    currency.ts
+    date.ts
+    validation.ts
+    order.ts
+  types/
+    models.ts
+```
+
+File placement rules:
+- New page: `src/app/pages/**`
+- New reusable UI: `src/components/**`
+- New global state: `src/context/**`
+- New static/seed/mock data: `src/data/**`
+- New custom hook: `src/hooks/**`
+- New route logic: `src/routes/**`
+- New pure helper: `src/utils/**`
+- New TS models/interfaces: `src/types/**`
+
+## Data Models (TypeScript)
+
+All model types must live in `src/types/models.ts` and be imported everywhere:
+
+```ts
+export type Product = {
+  id: string;
+  slug: string;
+  sku: string;
+  name: string;
+  category: 'mobility' | 'monitoring' | 'respiratory' | 'diagnostics' | 'rehab' | 'consumables';
+  brand: string;
+  shortDescription: string;
+  description: string;
+  price: number;
+  stock: number;
+  requiresPrescription: boolean;
+  imageUrl: string;
+  rating: number;
+  reviewCount: number;
+  certifications: ('FDA' | 'CE')[];
+};
+
+export type CartItem = {
+  productId: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  imageUrl: string;
+  requiresPrescription: boolean;
+};
+
+export type Customer = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  defaultAddress?: string;
+  isAdmin: boolean;
+};
+
+export type Order = {
+  id: string;
+  customerId: string;
+  items: CartItem[];
+  subtotal: number;
+  shipping: number;
+  tax: number;
+  total: number;
+  status: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  paymentMethod: 'cod' | 'card';
+  prescriptionAcknowledged: boolean;
+  createdAt: string;
+};
+```
+
+## Page Feature Specs
+
+- `HomePage`: hero, category cards, featured products, trust strip (FDA/CE badges, secure checkout, support).
+- `ListingPage`: category filter, search, sort, product grid, pagination, low-stock label.
+- `DetailPage`: gallery, certifications, price, stock, quantity picker, add-to-cart, prescription warning if needed.
+- `CartPage`: line items, quantity update, remove, subtotal/tax/total summary, continue shopping, checkout CTA.
+- `CheckoutPage`: customer form, shipping summary, payment selector, prescription acknowledgment checkbox, place-order action.
+- `ConfirmationPage`: order number, ordered items, totals, shipping details, next-step guidance.
+- `LoginPage`: email/password form, validation, role-aware redirect (customer/admin).
+- `AccountPage`: profile summary, order history list, order status badges.
+- Admin panel pages:
+- `AdminDashboardPage`: KPI cards (orders, revenue, customers, low stock), recent orders.
+- `AdminProductsPage`: list/create/edit products, stock and prescription flags.
+- `AdminOrdersPage`: order table, status update actions, detail preview.
+- `AdminCustomersPage`: customer list and profile preview.
+- `AdminSettingsPage`: business info, shipping/tax defaults, policy text blocks.
+
+## State Rules
+
+- Use React `useState` as default state primitive.
+- Use Context only for global state (`auth`, `cart`, `products`).
+- Persist `cart` and `auth` snapshot in `localStorage`.
+- No prop drilling deeper than 2 levels; extract component or use context before that.
+- Keep page-specific UI state local to page/component.
+- No external state library (Redux, Zustand, MobX, Recoil, etc.).
+
+## Tailwind Design System
+
+Use this palette and token intent:
+- `primary-50..900`: blue scale for brand, headings, key actions.
+- `accent-50..900`: teal scale for highlights and positive indicators.
+- `neutral-50..900`: backgrounds, borders, body text.
+- `success`, `warning`, `error`: semantic feedback colors.
+
+Style rules:
+- Spacing follows Tailwind scale (`2, 4, 6, 8, 10, 12, 16` etc.); do not invent random pixel spacing.
+- Radius: `rounded-lg` for controls/cards, `rounded-2xl` for hero/feature blocks.
+- Shadows: subtle medical-professional depth only (`shadow-sm`, `shadow-md`).
+- Breakpoints must use Tailwind defaults (`sm`, `md`, `lg`, `xl`, `2xl`) with mobile-first layouts.
+
+## Medical UX Rules
+
+- Always show trust signals in product and checkout flows (FDA/CE badges where applicable).
+- For `requiresPrescription` items, show warning banner on product detail, cart, and checkout.
+- Copy tone: professional, clear, safety-first; avoid hype or slang.
+- Include support and returns reassurance on conversion-critical pages.
+- Use accessible language, clear form labels, and actionable error messages.
+
+## Hard Constraints
+
+- No UI component libraries (MUI, Ant, Chakra, shadcn, etc.).
+- No backend/server/API generation in this project.
+- No inline styles; use Tailwind utility classes only.
+- No React class components; functional components only.
+- Keep dependencies minimal and stack-consistent.
+
+## Seed Data Spec
+
+Provide at least 12 products in `src/data/products.ts` across 6 categories (minimum 2 each):
+- Mobility
+- Monitoring
+- Respiratory
+- Diagnostics
+- Rehab
+- Consumables
+
+Each seed product must include:
+- valid `id`, `slug`, `sku`
+- realistic medical naming and pricing
+- stock count
+- at least one certification tag (`FDA` or `CE`)
+- `requiresPrescription` flag where clinically appropriate
