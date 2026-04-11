@@ -1,4 +1,22 @@
-# React + TypeScript + Vite
+# MediCart HQ (JAKCatalogue)
+
+React + TypeScript + Vite medical storefront. Production builds are served by a small Node server (`server.mjs`) suitable for **Azure App Service (Node.js)**.
+
+## Azure Web App deployment
+
+1. Use a **Linux** App Service with **Node 20 LTS** (or newer matching `engines` in `package.json`).
+2. Set **Startup Command** to: `npm start` (or leave default if the portal detects it).
+3. Ensure the deployment runs a **build** before start, for example:
+   - **Deployment Center** build command: `npm ci && npm run build`
+   - Or CI (GitHub Actions / Azure DevOps) that runs `npm ci && npm run build` then publishes the app folder.
+4. The app listens on **`process.env.PORT`** and **`0.0.0.0`**, which Azure injects automatically.
+5. `server.mjs` serves the Vite output in `dist/` and falls back to `index.html` so React Router routes work on refresh.
+
+If the site shows a blank page, confirm `dist/` exists on the server after build and that `npm start` runs **after** `npm run build`.
+
+---
+
+## React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
