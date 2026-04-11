@@ -11,6 +11,10 @@ React + TypeScript + Vite medical storefront. Production output is **static file
    - **Build command:** `npm ci && npm run build`
 3. `public/staticwebapp.config.json` is copied into **`dist/`** on build and sets **`navigationFallback`** to `/index.html` so React Router routes work on refresh.
 
+### JAK Delivery SDK
+
+Checkout loads **`/sdk/jakplug.js`** from **`public/sdk/jakplug.js`** (copied to `dist/sdk/`). The file is a vendored copy of the official script with **`WIDGET_URL`** and **`ALLOWED_ORIGIN`** set to **production** (`https://app.jakdelivery.com`), because the CDN script at `https://app.jakdelivery.com/sdk/jakplug.js` still embedded test dashboard URLs at last sync. Re-download from JAK and re-apply those two constants if you upgrade the SDK.
+
 You can also host `dist/` on any static host (Blob Storage static website, CDN, Netlify, etc.) and apply the same SPA fallback rules there.
 
 ---

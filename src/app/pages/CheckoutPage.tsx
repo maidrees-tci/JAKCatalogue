@@ -39,14 +39,14 @@ export function CheckoutPage() {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /** Vendored `public/sdk/jakplug.js` — CDN script still pointed at test; local copy uses production Sign-In + postMessage origin. */
   useEffect(() => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[src="https://app.jakdelivery.com/sdk/jakplug.js"]',
-    );
+    const sdkSrc = new URL('sdk/jakplug.js', new URL(import.meta.env.BASE_URL, window.location.origin)).href;
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${sdkSrc}"]`);
     if (existing) return;
 
     const script = document.createElement('script');
-    script.src = 'https://app.jakdelivery.com/sdk/jakplug.js';
+    script.src = sdkSrc;
     script.async = true;
     document.body.appendChild(script);
   }, []);
