@@ -1,18 +1,17 @@
 # MediCart HQ (JAKCatalogue)
 
-React + TypeScript + Vite medical storefront. Production builds are served by a small Node server (`server.mjs`) suitable for **Azure App Service (Node.js)**.
+React + TypeScript + Vite medical storefront. Production output is **static files** in `dist/` (no Node server required to host the app).
 
-## Azure Web App deployment
+## Azure Static Web Apps
 
-1. Use a **Linux** App Service with **Node 20 LTS** (or newer matching `engines` in `package.json`).
-2. Set **Startup Command** to: `npm start` (or leave default if the portal detects it).
-3. Ensure the deployment runs a **build** before start, for example:
-   - **Deployment Center** build command: `npm ci && npm run build`
-   - Or CI (GitHub Actions / Azure DevOps) that runs `npm ci && npm run build` then publishes the app folder.
-4. The app listens on **`process.env.PORT`** and **`0.0.0.0`**, which Azure injects automatically.
-5. `server.mjs` serves the Vite output in `dist/` and falls back to `index.html` so React Router routes work on refresh.
+1. Create an **Azure Static Web App** and connect this repository (or deploy `dist/` from CI).
+2. Build settings:
+   - **App location:** `/` (repository root)
+   - **Output location:** `dist`
+   - **Build command:** `npm ci && npm run build`
+3. `public/staticwebapp.config.json` is copied into **`dist/`** on build and sets **`navigationFallback`** to `/index.html` so React Router routes work on refresh.
 
-If the site shows a blank page, confirm `dist/` exists on the server after build and that `npm start` runs **after** `npm run build`.
+You can also host `dist/` on any static host (Blob Storage static website, CDN, Netlify, etc.) and apply the same SPA fallback rules there.
 
 ---
 
