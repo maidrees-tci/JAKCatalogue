@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PrescriptionWarning } from '../../components/common/PrescriptionWarning';
 import { useAuth } from '../../hooks/useAuth';
@@ -8,19 +8,20 @@ import { isRequired, isValidEmail } from '../../utils/validation';
 import { calculateOrderTotals } from '../../utils/order';
 import { formatCurrency } from '../../utils/currency';
 
+function strFromPayload(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v.trim();
+  return String(v).trim();
+}
+
+function readInternationalAddress(d: Record<string, unknown>): Record<string, unknown> {
+  const raw = d.internationalAddress ?? d.internationaladdress;
+  if (!raw) return {};
+  return Array.isArray(raw) ? ((raw[0] as Record<string, unknown>) ?? {}) : (raw as Record<string, unknown>);
+}
+
 export function CheckoutPage() {
-  useEffect(() => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[src="https://store2door-dashboard-test.azurewebsites.net/sdk/jakplug.js"]',
-    );
-    if (existing) return;
-
-    const script = document.createElement('script');
-    script.src = 'https://store2door-dashboard-test.azurewebsites.net/sdk/jakplug.js';
-    script.async = true;
-    document.body.appendChild(script);
-  }, []);
-
+  const checkoutFieldsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, clearCart } = useCart();
@@ -37,6 +38,109 @@ export function CheckoutPage() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://app.jakdelivery.com/sdk/jakplug.js"]',
+    );
+    if (existing) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://app.jakdelivery.com/sdk/jakplug.js';
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
+
+  /** Keep React state aligned when JAK SDK (or browser) sets input values on the DOM directly. */
+  useEffect(() => {
+    const root = checkoutFieldsRef.current;
+    if (!root) return;
+
+    const syncFromDom = (e: Event) => {
+      const el = e.target as HTMLInputElement;
+      if (!el?.name) return;
+      const v = el.value;
+      switch (el.name) {
+        case 'name':
+          setName(v);
+          break;
+        case 'email':
+          setEmail(v);
+          break;
+        case 'address1':
+          setAddress1(v);
+          break;
+        case 'address2':
+          setAddress2(v);
+          break;
+        case 'city':
+          setCity(v);
+          break;
+        case 'state':
+          setState(v);
+          break;
+        case 'postal':
+          setPin(v);
+          break;
+        case 'country':
+          setCountry(v);
+          break;
+        default:
+          break;
+      }
+    };
+
+    root.addEventListener('input', syncFromDom, true);
+    root.addEventListener('change', syncFromDom, true);
+    return () => {
+      root.removeEventListener('input', syncFromDom, true);
+      root.removeEventListener('change', syncFromDom, true);
+    };
+  }, []);
+
+  /** After JAK auth, merge payload into local state so controlled fields stay editable. */
+  useEffect(() => {
+    const onJakLoggedIn = (event: Event) => {
+      const detail = (event as CustomEvent<Record<string, unknown>>).detail;
+      if (!detail || typeof detail !== 'object') return;
+      const d = detail as Record<string, unknown>;
+      const ia = readInternationalAddress(d);
+
+      const nextName = strFromPayload(d.name) || strFromPayload(d.full_name);
+      const nextEmail = strFromPayload(d.email);
+      const nextA1 =
+        strFromPayload(d.street_address) ||
+        strFromPayload(d.address1) ||
+        strFromPayload(d.street) ||
+        strFromPayload(ia.address1);
+      const nextA2 = strFromPayload(d.address2) || strFromPayload(ia.address2);
+      const nextCity = strFromPayload(d.city) || strFromPayload(d.town) || strFromPayload(ia.city);
+      const nextState = strFromPayload(d.state) || strFromPayload(ia.state);
+      const nextPostal =
+        strFromPayload(d.postal_code) ||
+        strFromPayload(d.postalcode) ||
+        strFromPayload(d.zip) ||
+        strFromPayload(d.zipcode) ||
+        strFromPayload(ia.postalcode);
+      const nextCountry =
+        strFromPayload(d.countryname_en) ||
+        strFromPayload(d.country) ||
+        strFromPayload(ia.countryname_en) ||
+        strFromPayload(ia.country);
+
+      if (nextName) setName(nextName);
+      if (nextEmail) setEmail(nextEmail);
+      if (nextA1) setAddress1(nextA1);
+      if (nextA2) setAddress2(nextA2);
+      if (nextCity) setCity(nextCity);
+      if (nextState) setState(nextState);
+      if (nextPostal) setPin(nextPostal);
+      if (nextCountry) setCountry(nextCountry);
+    };
+
+    window.addEventListener('jakdeliveryLoggedIn', onJakLoggedIn);
+    return () => window.removeEventListener('jakdeliveryLoggedIn', onJakLoggedIn);
+  }, []);
 
   const hasPrescription = items.some((i) => i.requiresPrescription);
   const totals = calculateOrderTotals(items);
@@ -83,22 +187,79 @@ export function CheckoutPage() {
 
   return (
     <div className="grid gap-6 md:grid-cols-3">
-      <div className="space-y-4 md:col-span-2">
+      <div ref={checkoutFieldsRef} className="space-y-4 md:col-span-2">
         <h1 className="text-3xl font-bold">Checkout</h1>
         {hasPrescription && <PrescriptionWarning />}
-        <input name="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="w-full rounded-lg border border-neutral-300 px-3 py-2" />
+        <input
+          name="name"
+          autoComplete="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Full name"
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+        />
         {submitAttempted && !isRequired(name) && <p className="text-sm text-red-700">Full name is required.</p>}
-        <input name="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full rounded-lg border border-neutral-300 px-3 py-2" />
+        <input
+          name="email"
+          autoComplete="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+        />
         {submitAttempted && !isValidEmail(email) && <p className="text-sm text-red-700">Enter a valid email address.</p>}
-        <input name="address1" value={address1} onChange={(e) => setAddress1(e.target.value)} placeholder="Address 1" className="w-full rounded-lg border border-neutral-300 px-3 py-2" />
-        <input name="address2" value={address2} onChange={(e) => setAddress2(e.target.value)} placeholder="Address line 2" className="w-full rounded-lg border border-neutral-300 px-3 py-2" />
+        <input
+          name="address1"
+          autoComplete="address-line1"
+          value={address1}
+          onChange={(e) => setAddress1(e.target.value)}
+          placeholder="Address 1"
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+        />
+        <input
+          name="address2"
+          autoComplete="address-line2"
+          value={address2}
+          onChange={(e) => setAddress2(e.target.value)}
+          placeholder="Address line 2"
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+        />
         <div className="grid gap-3 sm:grid-cols-2">
-          <input name="city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" className="w-full rounded-lg border border-neutral-300 px-3 py-2" />
-          <input name="state" value={state} onChange={(e) => setState(e.target.value)} placeholder="State" className="w-full rounded-lg border border-neutral-300 px-3 py-2" />
+          <input
+            name="city"
+            autoComplete="address-level2"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="City"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+          />
+          <input
+            name="state"
+            autoComplete="address-level1"
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+            placeholder="State"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+          />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <input name="postal" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Postal code / Zipcode" className="w-full rounded-lg border border-neutral-300 px-3 py-2" />
-          <input name="country" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country" className="w-full rounded-lg border border-neutral-300 px-3 py-2" />
+          <input
+            name="postal"
+            autoComplete="postal-code"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+            placeholder="Postal code / Zipcode"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+          />
+          <input
+            name="country"
+            autoComplete="country-name"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            placeholder="Country"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+          />
         </div>
         <div
           id="jakdelivery-login-btn"
