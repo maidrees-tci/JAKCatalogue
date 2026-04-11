@@ -47,11 +47,12 @@ export function CheckoutPage() {
     isRequired(pin) &&
     isRequired(country);
   const hasValidForm = isRequired(name) && hasValidAddress && isValidEmail(email);
-  const canPlaceOrder = items.length > 0 && hasValidForm && (!hasPrescription || acknowledged) && !isSubmitting;
+  const canCompleteOrder =
+    items.length > 0 && hasValidForm && (!hasPrescription || acknowledged);
 
   const placeOrder = () => {
     setSubmitAttempted(true);
-    if (!canPlaceOrder) return;
+    if (!canCompleteOrder) return;
     setIsSubmitting(true);
     const order = {
       id: `ord-${crypto.randomUUID().slice(0, 8)}`,
@@ -128,8 +129,9 @@ export function CheckoutPage() {
         <p className="flex justify-between border-t border-neutral-200 pt-2 font-semibold"><span>Total</span><span>{formatCurrency(totals.total)}</span></p>
         {items.length === 0 && <p className="text-sm text-red-700">Your cart is empty.</p>}
         <button
+          type="button"
           onClick={placeOrder}
-          disabled={!canPlaceOrder}
+          disabled={items.length === 0 || isSubmitting}
           className="w-full rounded-lg bg-primary-700 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:bg-neutral-400"
         >
           {isSubmitting ? 'Placing Order...' : 'Place Order'}
